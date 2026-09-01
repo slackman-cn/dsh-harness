@@ -41,26 +41,35 @@ install_one() {
     return 1
 }
 
+# 统一记录失败：所有分支都通过此函数登记失败，避免遗漏
+record_failure() {
+    echo "!! FAILED: $1" >&2
+    FAILED="${FAILED} $1"
+}
+
 for spec in "$@"; do
     case "$spec" in
         github:*)
             repo="${spec#github:}"
             case "$repo" in
                 *\#*)
-                    # 已带 ref，直接安装
-                    install_one "$spec"
+                    # 已带 ref，直接安装；失败必须登记
+                    if ! install_one "$spec"; then
+                        record_failure "$spec"
+                    fi
                     ;;
                 *)
                     # 未带 ref：忽略分支，直接用仓库默认分支
                     if ! install_one "github:${repo}"; then
-                        echo "!! FAILED: ${spec}" >&2
-                        FAILED="${FAILED} ${spec}"
+                        record_failure "$spec"
                     fi
                     ;;
             esac
             ;;
         *)
-            install_one "$spec" || { echo "!! FAILED: ${spec}" >&2; FAILED="${FAILED} ${spec}"; }
+            if ! install_one "$spec"; then
+                record_failure "$spec"
+            fi
             ;;
     esac
 done
@@ -75,5 +84,5 @@ if [ -n "$FAILED" ]; then
     exit 1
 fi
 
-echo "install-plugins: 全部 ${#} 个插件处理完成"
+echo "install-plugins: 全部 $# 个插件处理完成"
 exit 0
