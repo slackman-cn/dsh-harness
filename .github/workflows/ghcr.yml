@@ -1,0 +1,149 @@
+# =============================================================================
+# 构建 DSH 镜像并推送 GHCR + 打包 tar 工件
+#
+# 触发：
+#   - push 到 main/master 分支
+#   - push 标签 v*（如 v0.1.0）
+#   - 手动 workflow_dispatch（可自定义插件列表/平台等）
+#
+# 产物：
+#   - ghcr.io/<owner>/<repo>:latest, <branch>, sha-<short>, 版本标签（多架构 amd64+arm64）
+#   - Actions 工件 dsh-image-linux-amd64.tar.gz（+ sha256），可用 docker load 导入
+#
+# 注意：默认假设 dsh-docker 目录内容就是仓库根目录（构建上下文为 .）。
+#       若 dsh-docker 是仓库的子目录，把下方 BUILD_CONTEXT 改为 dsh-docker。
+# =============================================================================
+name: DevOps
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: "插件列表（空格分隔的 github:owner/repo 或 npm 包名）；填 default 用 Dockerfile 内置默认"
+        required: false
+        default: "default"
+        type: string
+      dsh_version:
+        description: "@deepseek-ai/dsh 版本"
+        required: false
+        default: "0.1.1-rc.2"
+        type: string
+      allow_plugin_failures:
+        description: "允许插件安装失败继续构建"
+        required: false
+        default: "0"
+        type: choice
+        options: ["0", "1"]
+      platforms:
+        description: "推送的目标平台（逗号分隔）"
+        required: false
+        default: "linux/amd64,linux/arm64"
+        type: string
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  # dsh-docker 作为仓库根目录时上下文是 "."；若为子目录改成 dsh-docker
+  BUILD_CONTEXT: .
+  DOCKERFILE: Dockerfile
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        # 多架构（如 arm64）构建需要
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # workflow_dispatch 的输入只在手动触发时有值，push 触发时用默认值兜底
+      - name: Prepare build args
+        id: args
+        shell: bash
+        run: |
+          {
+            echo "DSH_VERSION=${{ inputs.dsh_version || '0.1.1-rc.2' }}"
+            echo "ALLOW_PLUGIN_FAILURES=${{ inputs.allow_plugin_failures || '0' }}"
+          } > args.txt
+          PLUGINS="${{ inputs.plugins }}"
+          if [ -z "$PLUGINS" ] || [ "$PLUGINS" = "default" ]; then
+            echo "使用 Dockerfile 内置默认插件列表" >&2
+          else
+            echo "PLUGINS=${PLUGINS}" >> args.txt
+          fi
+          {
+            echo "args<<EOF"
+            cat args.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.BUILD_CONTEXT }}/${{ env.DOCKERFILE }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ steps.args.outputs.args }}
+          cache-from: type=gha,scope=dsh-image
+          cache-to: type=gha,mode=max,scope=dsh-image
+
+      # ---- 打包 tar：用运行机同架构（amd64）单独构建一份并 docker save ----
+      - name: Build native image for tarball (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.BUILD_CONTEXT }}/${{ env.DOCKERFILE }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:tar
+          build-args: ${{ steps.args.outputs.args }}
+          cache-from: type=gha,scope=dsh-image
+
+      - name: Save image as tar.gz
+        run: |
+          docker save "${{ env.IMAGE_NAME }}:tar" | gzip -9 > dsh-image-linux-amd64.tar.gz
+          sha256sum dsh-image-linux-amd64.tar.gz | tee dsh-image-linux-amd64.tar.gz.sha256
+
+      - name: Upload tar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-image-linux-amd64
+          path: |
+            dsh-image-linux-amd64.tar.gz
+            dsh-image-linux-amd64.tar.gz.sha256
+          retention-days: 30
+          if-no-files-found: error

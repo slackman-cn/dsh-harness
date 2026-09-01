@@ -1,0 +1,6 @@
+# dsh-leetcode bundle patch：向 profile 插入 leetcode 工具行。
+# 该行引用本包的插件模块（lib/index.js 导出的 apply/inject/name），
+# 由 loader 在 profile 启动时加载，注册 leetcode_get / leetcode_search 两个工具。
+- insert:
+    - id: leetcode
+      name: 'dsh-leetcode'
