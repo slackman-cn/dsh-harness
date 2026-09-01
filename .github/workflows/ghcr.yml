@@ -4,7 +4,7 @@
 # 触发：
 #   - push 到 main/master 分支
 #   - push 标签 v*（如 v0.1.0）
-#   - 手动 workflow_dispatch（可自定义插件列表/平台等）
+#   - 手动 workflow_dispatch（可指定 DSH 版本/平台等）
 #
 # 产物：
 #   - ghcr.io/<owner>/<repo>:latest, <branch>, sha-<short>, 版本标签（多架构 amd64+arm64）
@@ -20,11 +20,6 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      plugins:
-        description: "插件列表（空格分隔的 github:owner/repo 或 npm 包名）；填 default 用 Dockerfile 内置默认"
-        required: false
-        default: "default"
-        type: string
       dsh_version:
         description: "@deepseek-ai/dsh 版本"
         required: false
@@ -82,12 +77,6 @@ jobs:
             echo "DSH_VERSION=${{ inputs.dsh_version || '0.1.1-rc.2' }}"
             echo "ALLOW_PLUGIN_FAILURES=${{ inputs.allow_plugin_failures || '0' }}"
           } > args.txt
-          PLUGINS="${{ inputs.plugins }}"
-          if [ -z "$PLUGINS" ] || [ "$PLUGINS" = "default" ]; then
-            echo "使用 Dockerfile 内置默认插件列表" >&2
-          else
-            echo "PLUGINS=${PLUGINS}" >> args.txt
-          fi
           {
             echo "args<<EOF"
             cat args.txt

@@ -11,8 +11,6 @@ dsh-docker/
 │   └── docker-build-push.yml  # GitHub Actions：构建推送 GHCR + 打包 tar
 ├── Dockerfile                 # 镜像定义
 ├── docker-entrypoint.sh       # 容器入口：自动绑定容器 IP 并启动 dsh web
-├── scripts/
-│   └── install-plugins.sh     # 批量安装 profile 插件（忽略分支，用默认分支）
 └── README.md
 ```
 
@@ -32,17 +30,16 @@ docker build -t dsh:latest .
 | 参数 | 默认值 | 说明 |
 |---|---|---|
 | `DSH_VERSION` | `0.1.1-rc.2` | DSH npm 包版本 |
-| `PLUGINS` | 下方 14 款 | 空格分隔的插件 spec（`github:owner/repo` 或 npm 包名） |
 | `ALLOW_PLUGIN_FAILURES` | `0` | `1` = 单个插件安装失败时跳过继续构建 |
+
+插件清单直接写在 Dockerfile 里，每个插件一行 `RUN`；增删插件改对应的
+`RUN dsh plugin --profile web add -w ...` 行即可，无需构建参数。
 
 示例：
 
 ```bash
-# 只装 Web UI 全家桶 + 插件市场
-docker build --build-arg 'PLUGINS=github:zhu1090093659/dsh-web github:dsh-market/dsh-market' -t dsh:lite .
-
-# 加上桌面客户端（Electron，体积大，headless 下基本不可用，不推荐）
-docker build --build-arg 'PLUGINS=github:anywhere-labs/dsh-desktop github:zhu1090093659/dsh-web' -t dsh:desktop .
+# 允许个别插件安装失败也继续构建
+docker build --build-arg ALLOW_PLUGIN_FAILURES=1 -t dsh:latest .
 ```
 
 ## 运行
@@ -93,7 +90,8 @@ docker run -d --name dsh \
 > 已核对这些仓库均真实存在；其中 3 个仓库已改名或换默认分支
 > （`deepseek-harness-desktop`→`dsh-desktop`，默认分支 `master`；
 > `dsh-web-ui`→`dsh-web`，默认分支 `dev`；`dsh-at-file` 转移到 `FSMargoo`），
-> 安装脚本会自动尝试 `main → master → dev → HEAD`，不必手工指定分支。
+> 安装逻辑已内联在 Dockerfile 中；`github:` 未带 ref 时由 pnpm
+> 直接使用仓库默认分支，不必手工指定分支。
 
 ## GitHub Actions：推送 GHCR + 打包 tar
 
@@ -139,7 +137,7 @@ docker run -d --name dsh \
    如需自定义绑定地址，设 `DSH_WEB_HOST`。
 3. **desktop 插件未默认安装**：`anywhere-labs/dsh-desktop` 是 Electron 桌面客户端
    （系统托盘/独立窗口），无头容器里无法使用且会拉取 Electron 二进制、显著增大镜像。
-   确需安装见上文构建参数示例。
+   确需安装时在 Dockerfile 插件区加一行对应的 `RUN`。
 4. **插件安装命令做了两处兼容修正**（本镜像已内置，均经实测验证）：
    - `pnpm >= 9.9` 对 workspace 根目录 `add` 要求显式 `-w`
      （`dsh plugin --profile web add -w github:...`），否则报
