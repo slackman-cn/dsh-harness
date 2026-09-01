@@ -40,7 +40,7 @@ RUN apt-get update \
 #     （下方安装命令已内置 -w）；
 #   - pnpm 10 默认阻止 git 依赖的 prepare 构建脚本（allowBuilds 门禁），
 #     pnpm 9 默认允许，插件才能装得上。
-RUN npm install -g --no-audit --no-fund pnpm@9
+RUN npm install -g --no-audit --no-fund pnpm@11
 
 # DeepSeek Harness（可覆盖版本，例如 --build-arg DSH_VERSION=0.1.1-rc.2）
 RUN npm install -g --no-audit --no-fund "@deepseek-ai/dsh"
@@ -62,6 +62,9 @@ ARG ALLOW_PLUGIN_FAILURES=0
 # 同时预写 allowBuilds，允许 dsh-computer-use 的 prepare 构建脚本
 # RUN mkdir -p /opt/dsh/profiles/web \
 #  && printf 'packages: []\nallowBuilds:\n  dsh-computer-use: true\n' > /opt/dsh/profiles/web/pnpm-workspace.yaml
+RUN mkdir -p /opt/dsh/profiles/web 
+COPY pnpm-workspace.yaml /opt/dsh/profiles/web/pnpm-workspace.yaml
+# COPY hosts /etc/hosts
 
 # -w：解决 pnpm >= 9.9 的 ERR_PNPM_ADDING_TO_ROOT（profile 目录即 workspace 根）
 # 失败时默认终止构建；ALLOW_PLUGIN_FAILURES=1 则记警告后继续

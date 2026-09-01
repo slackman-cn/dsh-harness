@@ -1,0 +1,18 @@
+# /opt/dsh/profiles/web/pnpm-workspace.yaml
+packages:
+  - .
+
+allowBuilds:
+  dsh-better-sidebar: true
+  dsh-tui: true
+  dsh-market: true
+  modlens: true
+  modsearch: true
+  dsh-imagegen: true
+  dsh-agent-teams: true
+  dsh-at-file: true
+  dsh-workspace-search: true
+  dsh-usage-stats: true
+  dsh-context-doctor: true
+  dsh-computer-use: true
+  dsh-reverse-skill: true
