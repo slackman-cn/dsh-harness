@@ -74,7 +74,10 @@ github:dhicoc/dsh-reverse-skill"
 ARG ALLOW_PLUGIN_FAILURES=0
 
 COPY scripts/install-plugins.sh /usr/local/bin/install-plugins.sh
-RUN chmod +x /usr/local/bin/install-plugins.sh \
+# 先配置 pnpm 允许 git-hosted 插件的 prepare 脚本执行
+RUN echo 'allowBuilds:' >> /opt/dsh/profiles/web/pnpm-workspace.yaml \
+ && echo '  dsh-computer-use: true' >> /opt/dsh/profiles/web/pnpm-workspace.yaml \
+ && chmod +x /usr/local/bin/install-plugins.sh \
  && ALLOW_PLUGIN_FAILURES=${ALLOW_PLUGIN_FAILURES} \
     /usr/local/bin/install-plugins.sh web ${PLUGINS}
 
