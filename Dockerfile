@@ -43,8 +43,7 @@ RUN apt-get update \
 RUN npm install -g --no-audit --no-fund pnpm@9
 
 # DeepSeek Harness（可覆盖版本，例如 --build-arg DSH_VERSION=0.1.1-rc.2）
-ARG DSH_VERSION=0.1.1-rc.2
-RUN npm install -g --no-audit --no-fund "@deepseek-ai/dsh@${DSH_VERSION}"
+RUN npm install -g --no-audit --no-fund "@deepseek-ai/dsh"
 
 # DSH 数据目录（profiles、会话、日志都放在这里）；运行时挂载卷持久化
 ENV DSH_HOME=/opt/dsh
@@ -57,14 +56,16 @@ ENV DSH_HOME=/opt/dsh
 # 1 = 某个插件安装失败时继续构建（记录警告），0 = 严格失败
 ARG ALLOW_PLUGIN_FAILURES=0
 
-# 初始化 web profile：profile 目录本身是 pnpm workspace 根；
-# 预写 allowBuilds，允许 dsh-computer-use 的 prepare 构建脚本
-RUN mkdir -p /opt/dsh/profiles/web \
- && printf 'allowBuilds:\n  dsh-computer-use: true\n' >> /opt/dsh/profiles/web/pnpm-workspace.yaml
+# 初始化 web profile：profile 目录本身是 pnpm workspace 根。
+# pnpm 9 要求 pnpm-workspace.yaml 必须带 packages 字段（可以为空列表），
+# 否则每个 `pnpm add` 都报 "packages field missing or empty"；
+# 同时预写 allowBuilds，允许 dsh-computer-use 的 prepare 构建脚本
+# RUN mkdir -p /opt/dsh/profiles/web \
+#  && printf 'packages: []\nallowBuilds:\n  dsh-computer-use: true\n' > /opt/dsh/profiles/web/pnpm-workspace.yaml
 
 # -w：解决 pnpm >= 9.9 的 ERR_PNPM_ADDING_TO_ROOT（profile 目录即 workspace 根）
 # 失败时默认终止构建；ALLOW_PLUGIN_FAILURES=1 则记警告后继续
-RUN dsh plugin --profile web add -w github:zhu1090093659/dsh-web || { echo "!! FAILED: github:zhu1090093659/dsh-web" >&2; [ "${ALLOW_PLUGIN_FAILURES}" = "1" ]; }
+#RUN dsh plugin --profile web add -w github:zhu1090093659/dsh-web || { echo "!! FAILED: github:zhu1090093659/dsh-web" >&2; [ "${ALLOW_PLUGIN_FAILURES}" = "1" ]; }
 RUN dsh plugin --profile web add -w github:omdsh-dev/DSH-better-sidebar || { echo "!! FAILED: github:omdsh-dev/DSH-better-sidebar" >&2; [ "${ALLOW_PLUGIN_FAILURES}" = "1" ]; }
 RUN dsh plugin --profile web add -w github:ccch1mneyyy/dsh-TUI || { echo "!! FAILED: github:ccch1mneyyy/dsh-TUI" >&2; [ "${ALLOW_PLUGIN_FAILURES}" = "1" ]; }
 RUN dsh plugin --profile web add -w github:dsh-market/dsh-market || { echo "!! FAILED: github:dsh-market/dsh-market" >&2; [ "${ALLOW_PLUGIN_FAILURES}" = "1" ]; }
