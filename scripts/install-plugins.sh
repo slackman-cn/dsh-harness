@@ -7,8 +7,7 @@
 #     github:owner/repo[#ref]   —— 从 GitHub 安装
 #     <npm包名>                 —— 从 npm registry 安装
 #
-# github: 未显式指定 ref 时，依次尝试 main -> master -> dev -> 默认分支(HEAD)，
-# 避免仓库默认分支不是 main 时安装失败（如 dsh-desktop 用 master、dsh-web 用 dev）。
+# github: 未显式指定 ref 时，忽略分支，直接使用仓库默认分支安装。
 #
 # 环境变量：
 #   ALLOW_PLUGIN_FAILURES=1 —— 单个插件失败时记警告并继续；默认严格失败（非零退出）
@@ -52,12 +51,8 @@ for spec in "$@"; do
                     install_one "$spec"
                     ;;
                 *)
-                    # 未带 ref：按 main -> master -> dev -> HEAD 顺序尝试
-                    if ! install_one \
-                        "github:${repo}#main" \
-                        "github:${repo}#master" \
-                        "github:${repo}#dev" \
-                        "github:${repo}"; then
+                    # 未带 ref：忽略分支，直接用仓库默认分支
+                    if ! install_one "github:${repo}"; then
                         echo "!! FAILED: ${spec}" >&2
                         FAILED="${FAILED} ${spec}"
                     fi

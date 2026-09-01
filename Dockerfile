@@ -52,7 +52,7 @@ ENV DSH_HOME=/opt/dsh
 # -----------------------------------------------------------------------------
 # 常用插件（博客 15 款中去掉 deepseek-harness-desktop：
 #   它是 Electron 桌面客户端，headless 容器里无法运行且体积巨大）
-# 默认分支处理：install-plugins.sh 会自动尝试 main -> master -> dev -> HEAD
+# 分支处理：install-plugins.sh 忽略分支，直接使用仓库默认分支
 # -----------------------------------------------------------------------------
 ARG PLUGINS="\
 github:zhu1090093659/dsh-web \

@@ -12,7 +12,7 @@ dsh-docker/
 ├── Dockerfile                 # 镜像定义
 ├── docker-entrypoint.sh       # 容器入口：自动绑定容器 IP 并启动 dsh web
 ├── scripts/
-│   └── install-plugins.sh     # 批量安装 profile 插件（含分支回退与容错）
+│   └── install-plugins.sh     # 批量安装 profile 插件（忽略分支，用默认分支）
 └── README.md
 ```
 
